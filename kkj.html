@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=UTF-8">
+  <title>Hello, World!</title>
+</head>
+<body>
+  <h1>
+    Hello, World!
+  </h1>
+</body>
+</html>
+
+<?php
+// استيراد ملف الاتصال بقاعدة البيانات
+require_once "connection.php";
+
+// متغير لتخزين الرسائل
+$message = ""; 
+
+// التحقق مما إذا كانت الطلبية جاءت عبر POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // الحصول على نوع الإجراء المطلوب (إضافة، حذف، تعديل)
+    $action = $_POST['action'];
+
+    // إذا كان الإجراء هو إضافة طالب
+    if ($action === 'add') {
+        // الحصول على بيانات الطالب من النموذج
+        $username = $_POST['student_name'];
+        $password = $_POST['password'];
+        $student_name = $_POST['student_name'];
+        $sta_por_grade = $_POST['sta_por_grade'];
+        $cryptography_grade = $_POST['cryptography_grade'];
+        $web_dev_grade = $_POST['web_dev_grade'];
+        $os_grade = $_POST['os_grade'];
+        $data_structures_grade = $_POST['data_structures_grade'];
+
+        // استعلام لإضافة مستخدم جديد في جدول المستخدمين
+        $add_user_query = "INSERT INTO users (username, password, user_type) VALUES (?, ?, 'student')";
+        $stmt = $conn->prepare($add_user_query);
+        $stmt->bind_param("ss", $username, $password); // ربط المتغيرات
+        if ($stmt->execute()) {
+            // الحصول على ID المستخدم الجديد
+            $user_id = $stmt->insert_id; 
+
+            // إضافة الطالب في جدول الطلاب
+            $add_student_query = "INSERT INTO student (id, student_name, sta_por_grade, cryptography_grade, web_dev_grade, os_grade, data_structures_grade) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($add_student_query);
+            $stmt->bind_param("isiiiii", $user_id, $student_name, $sta_por_grade, $cryptography_grade, $web_dev_grade, $os_grade, $data_structures_grade);
+            if ($stmt->execute()) {
+                // إضافة العلاقة في جدول العلاقات
+                $add_relation_query = "INSERT INTO relations (user_fk, student_fk) VALUES (?, ?)";
+                $stmt = $conn->prepare($add_relation_query);
+                $stmt->bind_param("ii", $user_id, $user_id);
+                if ($stmt->execute()) {
+                    // رسالة نجاح
+                    $message = "تمت إضافة الطالب بنجاح!";
+                } else {
+                    // رسالة خطأ إذا فشل إضافة العلاقة
+                    $message = "خطأ أثناء إضافة العلاقة: " . $conn->error;
+                }
+            } else {
+                // رسالة خطأ إذا فشل إضافة الطالب
+                $message = "خطأ أثناء إضافة الطالب: " . $conn->error;
+            }
+        } else {
+            // رسالة خطأ إذا فشل إضافة المستخدم
+            $message = "خطأ أثناء إضافة المستخدم: " . $conn->error;
+        }
+    } elseif ($action === 'delete') {
+        // إذا كان الإجراء هو حذف طالب
+        $student_id = $_POST['student_id'];
+
+        // حذف العلاقة من جدول العلاقات
+        $delete_relation_query = "DELETE FROM relations WHERE user_fk = ?";
+        $stmt = $conn->prepare($delete_relation_query);
+        $stmt->bind_param("i", $student_id);
+        if ($stmt->execute()) {
+            // حذف الطالب من جدول الطلاب
+            $delete_student_query = "DELETE FROM student WHERE id = ?";
+            $stmt = $conn->prepare($delete_student_query);
+            $stmt->bind_param("i", $student_id);
+            if ($stmt->execute()) {
+                // حذف المستخدم من جدول المستخدمين
+                $delete_user_query = "DELETE FROM users WHERE id = ?";
+                $stmt = $conn->prepare($delete_user_query);
+                $stmt->bind_param("i", $student_id);
+                if ($stmt->execute()) {
+                    // رسالة نجاح
+                    $message = "تم حذف الطالب بنجاح!";
+                } else {
+                    // رسالة خطأ إذا فشل حذف المستخدم
+                    $message = "خطأ أثناء حذف المستخدم: " . $conn->error;
+                }
+            } else {
+                // رسالة خطأ إذا فشل حذف الطالب
+                $message = "خطأ أثناء حذف الطالب: " . $conn->error;
+            }
+        } else {
+            // رسالة خطأ إذا فشل حذف العلاقة
+            $message = "خطأ أثناء حذف العلاقة: " . $conn->error;
+        }
+    } elseif ($action === 'edit') {
+        // إذا كان الإجراء هو تعديل بيانات طالب
+        $student_id = $_POST['student_id'];
+        $student_name = $_POST['student_name'];
+        $sta_por_grade = $_POST['sta_por_grade'];
+        $cryptography_grade = $_POST['cryptography_grade'];
+        $web_dev_grade = $_POST['web_dev_grade'];
+        $os_grade = $_POST['os_grade'];
+        $data_structures_grade = $_POST['data_structures_grade'];
+
+        // تحديث بيانات الطالب في جدول الطلاب
+        $update_student_query = "
+            UPDATE student 
+            SET 
+                student_name = ?, 
+                sta_por_grade = ?, 
+                cryptography_grade = ?, 
+                web_dev_grade = ?, 
+                os_grade = ?, 
+                data_structures_grade = ? 
+            WHERE id = ?";
+        
+        // تحضير الاستعلام وتحديث البيانات
+        $stmt = $conn->prepare($update_student_query);
+        // ربط المتغيرات للاستعلام المحضر
+        $stmt->bind_param("siiiiii", $student_name, $sta_por_grade, $cryptography_grade, $web_dev_grade, $os_grade, $data_structures_grade, $student_id);
+        
+        // تنفيذ الاستعلام وتحقق من النجاح
+        if ($stmt->execute()) {
+            // رسالة نجاح عند تحديث البيانات
+            $message = "تم تعديل بيانات الطالب بنجاح!";
+        } else {
+            // رسالة خطأ عند فشل التحديث
+            $message = "خطأ أثناء تعديل بيانات الطالب: " . $conn->error;
+        }
+    }
+}
+?>
